@@ -462,8 +462,6 @@ def main():
     # 7. Disclaimers & Methodology Footer
     st.markdown("""
     <div class="info-footer">
-        <b>Model Architecture:</b> CatBoost Regressor with Train-Tuned Return Threshold (EXP2).<br>
-        Price movement reflects continuous regression output. EXP2 classification evaluates whether expected return exceeds the calibrated decision hurdle.<br>
         Forecasts represent statistical projections for educational demonstration and do not constitute financial advice.
     </div>
     """, unsafe_allow_html=True)
