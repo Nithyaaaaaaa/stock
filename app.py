@@ -36,25 +36,29 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Minimal Custom Styling
+# Minimal Custom Styling (High-contrast, dark-mode compatible)
 st.markdown("""
 <style>
     .main-title {
-        font-size: 2.2rem;
+        font-size: 2.4rem;
         font-weight: 800;
-        color: #0F172A;
+        color: #38BDF8;
+        background: linear-gradient(135deg, #38BDF8 0%, #818CF8 50%, #C084FC 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         margin-bottom: 0.1rem;
         text-align: center;
+        letter-spacing: -0.02em;
     }
     .sub-title {
         font-size: 1.05rem;
-        color: #64748B;
+        color: #CBD5E1;
         margin-bottom: 1.8rem;
         text-align: center;
     }
     .metric-card {
-        background-color: #F8FAFC;
-        border: 1px solid #E2E8F0;
+        background-color: #1E293B;
+        border: 1px solid #334155;
         border-radius: 10px;
         padding: 1.0rem 0.75rem;
         text-align: center;
@@ -62,7 +66,7 @@ st.markdown("""
     }
     .metric-label {
         font-size: 0.78rem;
-        color: #64748B;
+        color: #94A3B8;
         font-weight: 700;
         text-transform: uppercase;
         margin-bottom: 0.35rem;
@@ -71,60 +75,64 @@ st.markdown("""
     .metric-value {
         font-size: 1.55rem;
         font-weight: 800;
-        color: #0F172A;
+        color: #F8FAFC;
     }
     .metric-delta-pos {
-        color: #16A34A;
+        color: #4ADE80;
         font-weight: 700;
         font-size: 0.95rem;
     }
     .metric-delta-neg {
-        color: #DC2626;
+        color: #F87171;
         font-weight: 700;
         font-size: 0.95rem;
     }
     .price-badge-up {
-        background-color: #DCFCE7;
-        color: #15803D;
+        background-color: rgba(34, 197, 94, 0.2);
+        color: #4ADE80;
         font-weight: 800;
         font-size: 1.05rem;
+        border: 1px solid rgba(74, 222, 128, 0.4);
         border-radius: 6px;
         padding: 0.25rem 0.55rem;
         display: inline-block;
     }
     .price-badge-down {
-        background-color: #FEE2E2;
-        color: #B91C1C;
+        background-color: rgba(239, 68, 68, 0.2);
+        color: #F87171;
         font-weight: 800;
         font-size: 1.05rem;
+        border: 1px solid rgba(248, 113, 113, 0.4);
         border-radius: 6px;
         padding: 0.25rem 0.55rem;
         display: inline-block;
     }
     .price-badge-neutral {
-        background-color: #F1F5F9;
-        color: #475569;
+        background-color: rgba(148, 163, 184, 0.2);
+        color: #E2E8F0;
         font-weight: 800;
         font-size: 1.05rem;
+        border: 1px solid rgba(148, 163, 184, 0.3);
         border-radius: 6px;
         padding: 0.25rem 0.55rem;
         display: inline-block;
     }
     .exp2-badge-up {
-        background-color: #DCFCE7;
-        color: #15803D;
+        background-color: rgba(34, 197, 94, 0.2);
+        color: #4ADE80;
         font-weight: 800;
         font-size: 1.05rem;
+        border: 1px solid rgba(74, 222, 128, 0.4);
         border-radius: 6px;
         padding: 0.25rem 0.55rem;
         display: inline-block;
     }
     .exp2-badge-below {
-        background-color: #F1F5F9;
-        color: #334155;
+        background-color: rgba(100, 116, 139, 0.2);
+        color: #CBD5E1;
         font-weight: 800;
         font-size: 1.05rem;
-        border: 1px solid #CBD5E1;
+        border: 1px solid rgba(203, 213, 225, 0.3);
         border-radius: 6px;
         padding: 0.25rem 0.55rem;
         display: inline-block;
@@ -369,7 +377,7 @@ def main():
             <div class="metric-card">
                 <div class="metric-label">Predicted Close</div>
                 <div class="metric-value">{curr_sym}{pred_price:.2f}</div>
-                <div style="font-size:0.75rem; color:#2563EB; font-weight:600;">{result['next_date'].strftime('%b %d, %Y (%a)')}</div>
+                <div style="font-size:0.75rem; color:#38BDF8; font-weight:600;">{result['next_date'].strftime('%b %d, %Y (%a)')}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -387,7 +395,7 @@ def main():
             <div class="metric-card">
                 <div class="metric-label">Predicted Price Movement</div>
                 <div style="margin-top:0.35rem;"><span class="{price_badge_class}">{price_movement} {price_arrow}</span></div>
-                <div style="font-size:0.75rem; color:#64748B; margin-top:0.35rem;">{delta_sign}{curr_sym}{abs(price_diff):.2f} ({delta_sign}{abs(pct_diff):.2f}%)</div>
+                <div style="font-size:0.75rem; color:#94A3B8; margin-top:0.35rem;">{delta_sign}{curr_sym}{abs(price_diff):.2f} ({delta_sign}{abs(pct_diff):.2f}%)</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -396,7 +404,7 @@ def main():
             <div class="metric-card">
                 <div class="metric-label">EXP2 Classification</div>
                 <div style="margin-top:0.35rem;"><span class="{exp2_badge_class}">{exp2_classification}</span></div>
-                <div style="font-size:0.72rem; color:#64748B; margin-top:0.35rem; font-weight:500;">
+                <div style="font-size:0.72rem; color:#94A3B8; margin-top:0.35rem; font-weight:500;">
                     Pred Return: <b>{pred_log_ret:+.2%}</b> | Threshold: <b>{tau:+.2%}</b>
                 </div>
             </div>
@@ -418,11 +426,11 @@ def main():
             y=hist_recent["Close"],
             mode="lines",
             name="Historical Close",
-            line=dict(color="#334155", width=2)
+            line=dict(color="#38BDF8", width=2)
         ))
         
         # Forecasted Next Trading Day
-        chart_line_color = "#16A34A" if price_diff >= 0 else "#DC2626"
+        chart_line_color = "#4ADE80" if price_diff >= 0 else "#F87171"
         fig.add_trace(go.Scatter(
             x=[result["last_date"], result["next_date"]],
             y=[last_close, pred_price],
@@ -436,7 +444,11 @@ def main():
             xaxis_title="Trading Session Date",
             yaxis_title=f"Price ({curr_sym})",
             hovermode="x unified",
-            template="plotly_white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#CBD5E1"),
+            xaxis=dict(gridcolor="rgba(148, 163, 184, 0.15)"),
+            yaxis=dict(gridcolor="rgba(148, 163, 184, 0.15)"),
             height=420,
             margin=dict(l=20, r=20, t=30, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
