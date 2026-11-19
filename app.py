@@ -304,7 +304,7 @@ def main():
             st.error("Please enter or select a valid stock ticker symbol.")
             return
 
-        with st.spinner(f"Analyzing {selected_ticker} and generating next-day forecast (EXP2)..."):
+        with st.spinner(f"Analyzing {selected_ticker} and generating next-day forecast..."):
             try:
                 df_clean, bench = load_clean_data(selected_ticker)
             except Exception as e:
@@ -327,7 +327,7 @@ def main():
         badge_text = (
             "✅ **Primary Benchmark Asset** (Validated in 5-Fold Walk-Forward Cross-Validation & Purged Diagnostic Holdout)"
             if is_primary
-            else f"🧪 **Dynamic Asset Transfer** (Trained on {selected_ticker} history using the EXP2 CatBoost architecture)"
+            else f"🧪 **Dynamic Asset Transfer** (Trained on {selected_ticker} history using the CatBoost architecture)"
         )
         st.caption(badge_text)
 
@@ -401,7 +401,7 @@ def main():
         with col5:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-label">EXP2 Classification</div>
+                <div class="metric-label">Directional Signal</div>
                 <div style="margin-top:0.35rem;"><span class="{exp2_badge_class}">{exp2_classification}</span></div>
                 <div style="font-size:0.72rem; color:#94A3B8; margin-top:0.35rem; font-weight:500;">
                     Pred Return: <b>{pred_log_ret:+.2%}</b> | Threshold: <b>{tau:+.2%}</b>
@@ -465,7 +465,7 @@ def main():
             "Predicted Close": f"{curr_sym}{pred_price:.2f}",
             "Expected Change": f"{delta_sign}{curr_sym}{abs(price_diff):.2f} ({delta_sign}{abs(pct_diff):.2f}%)",
             "Price Movement": f"{price_movement} {price_arrow}",
-            "EXP2 Classification": f"{exp2_classification} (Pred Return: {pred_log_ret:+.2%}, Threshold: {tau:+.2%})"
+            "Directional Signal": f"{exp2_classification} (Pred Return: {pred_log_ret:+.2%}, Threshold: {tau:+.2%})"
         }]
         
         st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
