@@ -36,10 +36,16 @@ def test_tree_forecasters_produce_valid_predictions(synthetic_data):
     X, y, prev_closes = synthetic_data
     models = [
         RandomForestForecaster(n_estimators=10, max_depth=3, random_state=42),
-        XGBoostForecaster(n_estimators=10, max_depth=2, random_state=42),
-        LightGBMForecaster(n_estimators=10, max_depth=2, random_state=42),
         CatBoostForecaster(iterations=10, depth=2, random_seed=42)
     ]
+    try:
+        models.append(XGBoostForecaster(n_estimators=10, max_depth=2, random_state=42))
+    except ImportError:
+        pass
+    try:
+        models.append(LightGBMForecaster(n_estimators=10, max_depth=2, random_state=42))
+    except ImportError:
+        pass
     
     for m in models:
         m.fit(X[:80], y[:80])

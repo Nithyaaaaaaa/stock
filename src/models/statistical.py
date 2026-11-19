@@ -5,8 +5,12 @@ ARIMA and Exponential Smoothing for return and price forecasting.
 
 from typing import Optional
 import numpy as np
-from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.tsa.api import SimpleExpSmoothing
+try:
+    from statsmodels.tsa.arima.model import ARIMA
+    from statsmodels.tsa.api import SimpleExpSmoothing
+    HAS_STATSMODELS = True
+except ImportError:
+    HAS_STATSMODELS = False
 
 from src.models.base import BaseForecaster
 
@@ -18,6 +22,8 @@ class ARIMAForecaster(BaseForecaster):
     """
     def __init__(self, order: tuple = (1, 0, 0)):
         super().__init__(name=f"ARIMA{order}")
+        if not HAS_STATSMODELS:
+            raise ImportError("statsmodels is required for ARIMAForecaster. Install it via pip install statsmodels.")
         self.order = order
         self.const_ = 0.0
         self.phi_ = 0.0
@@ -53,6 +59,8 @@ class ExponentialSmoothingForecaster(BaseForecaster):
     """
     def __init__(self, smoothing_level: Optional[float] = 0.1):
         super().__init__(name="Exponential Smoothing")
+        if not HAS_STATSMODELS:
+            raise ImportError("statsmodels is required for ExponentialSmoothingForecaster. Install it via pip install statsmodels.")
         self.smoothing_level = smoothing_level
         self.fitted_level_ = 0.0
         

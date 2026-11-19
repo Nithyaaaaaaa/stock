@@ -8,7 +8,11 @@ from typing import List, Dict, Tuple
 import numpy as np
 import pandas as pd
 import warnings
-from statsmodels.tsa.stattools import adfuller, kpss
+try:
+    from statsmodels.tsa.stattools import adfuller, kpss
+    HAS_STATSMODELS = True
+except ImportError:
+    HAS_STATSMODELS = False
 import logging
 
 logger = logging.getLogger(__name__)
@@ -166,6 +170,8 @@ def evaluate_feature_stationarity(
     KPSS: H0: Level stationary. Rejection (p < 0.05) indicates non-stationarity.
     """
     warnings.filterwarnings("ignore")
+    if not HAS_STATSMODELS:
+        raise ImportError("statsmodels is required for stationarity auditing. Install via pip install statsmodels.")
     results = []
     
     for feat in feature_cols:

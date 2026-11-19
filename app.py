@@ -1,7 +1,6 @@
 """
 Predictive Insights – Next-Day Stock Price & Direction Forecasting
-Production Flask Web Application & Serverless REST API (Vercel Entry Point).
-Exports top-level WSGI instance: `app`.
+Streamlit Web Application: Next-Trading-Day Only (EXP2 Champion Architecture).
 """
 
 import os
@@ -12,16 +11,16 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
 
-# Threading safety
+# Safe OpenMP / threading configuration
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
-import time
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 from sklearn.preprocessing import StandardScaler
-from flask import Flask, jsonify, render_template, request, send_from_directory
+import streamlit as st
 
 from src.data.fetcher import fetch_market_data
 from src.data.validator import validate_and_clean_data
@@ -29,8 +28,116 @@ from src.data.calendar import get_next_trading_day
 from src.features.technical import compute_all_candidate_features
 from src.models.trees import CatBoostEXP2Forecaster
 
-# Top-level Flask application instance required by Vercel
-app = Flask(__name__, static_folder="static", template_folder="templates")
+# Page Configuration
+st.set_page_config(
+    page_title="Predictive Insights | Next-Day Stock Forecasting",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# Minimal Custom Styling
+st.markdown("""
+<style>
+    .main-title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #0F172A;
+        margin-bottom: 0.1rem;
+        text-align: center;
+    }
+    .sub-title {
+        font-size: 1.05rem;
+        color: #64748B;
+        margin-bottom: 1.8rem;
+        text-align: center;
+    }
+    .metric-card {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 1.0rem 0.75rem;
+        text-align: center;
+        min-height: 120px;
+    }
+    .metric-label {
+        font-size: 0.78rem;
+        color: #64748B;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 0.35rem;
+        letter-spacing: 0.03em;
+    }
+    .metric-value {
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #0F172A;
+    }
+    .metric-delta-pos {
+        color: #16A34A;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+    .metric-delta-neg {
+        color: #DC2626;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+    .price-badge-up {
+        background-color: #DCFCE7;
+        color: #15803D;
+        font-weight: 800;
+        font-size: 1.05rem;
+        border-radius: 6px;
+        padding: 0.25rem 0.55rem;
+        display: inline-block;
+    }
+    .price-badge-down {
+        background-color: #FEE2E2;
+        color: #B91C1C;
+        font-weight: 800;
+        font-size: 1.05rem;
+        border-radius: 6px;
+        padding: 0.25rem 0.55rem;
+        display: inline-block;
+    }
+    .price-badge-neutral {
+        background-color: #F1F5F9;
+        color: #475569;
+        font-weight: 800;
+        font-size: 1.05rem;
+        border-radius: 6px;
+        padding: 0.25rem 0.55rem;
+        display: inline-block;
+    }
+    .exp2-badge-up {
+        background-color: #DCFCE7;
+        color: #15803D;
+        font-weight: 800;
+        font-size: 1.05rem;
+        border-radius: 6px;
+        padding: 0.25rem 0.55rem;
+        display: inline-block;
+    }
+    .exp2-badge-below {
+        background-color: #F1F5F9;
+        color: #334155;
+        font-weight: 800;
+        font-size: 1.05rem;
+        border: 1px solid #CBD5E1;
+        border-radius: 6px;
+        padding: 0.25rem 0.55rem;
+        display: inline-block;
+    }
+    .info-footer {
+        text-align: center;
+        color: #94A3B8;
+        font-size: 0.82rem;
+        margin-top: 2.5rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 POPULAR_STOCKS = {
     "Apple (AAPL)": "AAPL",
@@ -48,40 +155,18 @@ POPULAR_STOCKS = {
     "Other / Custom Ticker...": "CUSTOM"
 }
 
-# Reverse mapping for asset names
-ASSET_NAMES = {
-    "AAPL": "Apple Inc.",
-    "MSFT": "Microsoft Corporation",
-    "NVDA": "NVIDIA Corporation",
-    "AMZN": "Amazon.com Inc.",
-    "GOOGL": "Alphabet Inc.",
-    "TSLA": "Tesla Inc.",
-    "META": "Meta Platforms Inc.",
-    "NFLX": "Netflix Inc.",
-    "AMD": "Advanced Micro Devices",
-    "RELIANCE.NS": "Reliance Industries",
-    "TCS.NS": "Tata Consultancy Services",
-    "INFY.NS": "Infosys Limited"
-}
 
-# In-memory TTL data cache
-_DATA_CACHE = {}
-_CACHE_TTL = 3600  # 1 hour
-
-
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_clean_data(ticker: str):
-    """Retrieves and cleans historical market data with TTL in-memory caching."""
+    """Retrieves and cleans historical market data for the selected asset."""
     ticker = ticker.strip().upper()
     if not ticker:
         raise ValueError("Please provide a valid, non-empty stock ticker.")
         
-    now = time.time()
-    if ticker in _DATA_CACHE:
-        df_cached, bench_cached, timestamp = _DATA_CACHE[ticker]
-        if now - timestamp < _CACHE_TTL:
-            return df_cached, bench_cached
-            
+    # Choose benchmark with calendar synchronization
     benchmark_ticker = "^NSEI" if ticker.endswith((".NS", ".BO")) else "SPY"
+    
+    # Primary benchmark asset uses 2015-01-01 start to preserve full development history
     start_date = "2015-01-01" if ticker == "AAPL" else "2020-01-01"
     raw_target, raw_bench = fetch_market_data(
         ticker=ticker,
@@ -89,7 +174,6 @@ def load_clean_data(ticker: str):
         start=start_date
     )
     df_clean = validate_and_clean_data(raw_target, raw_bench)
-    _DATA_CACHE[ticker] = (df_clean, benchmark_ticker, now)
     return df_clean, benchmark_ticker
 
 
@@ -166,11 +250,6 @@ def run_next_day_forecast(df_clean: pd.DataFrame, ticker: str = "AAPL"):
         "UP — Above threshold" if pred_log_ret > learned_tau
         else "Below UP threshold"
     )
-
-    # Historical 60 sessions for chart
-    hist_recent = df_clean.iloc[-60:]
-    historical_dates = [d.strftime("%Y-%m-%d") for d in hist_recent.index]
-    historical_prices = [round(float(p), 2) for p in hist_recent["Close"]]
     
     return {
         "ticker": ticker,
@@ -184,98 +263,211 @@ def run_next_day_forecast(df_clean: pd.DataFrame, ticker: str = "AAPL"):
         "price_movement": price_movement,
         "exp2_classification": exp2_classification,
         "learned_threshold": learned_tau,
-        "pred_log_return": pred_log_ret,
-        "historical_dates": historical_dates,
-        "historical_prices": historical_prices
+        "pred_log_return": pred_log_ret
     }
 
 
-# ============================================================================
-# Flask HTTP Routes
-# ============================================================================
+def main():
+    st.markdown('<div class="main-title">📈 Predictive Insights</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Intelligent Next-Day Stock Price & Direction Forecasting</div>', unsafe_allow_html=True)
 
-@app.route("/")
-def index():
-    """Serves the main HTML application."""
-    return render_template("index.html", stocks=POPULAR_STOCKS)
-
-
-@app.route("/api/stocks")
-def get_stocks():
-    """Returns supported popular stock tickers."""
-    return jsonify(POPULAR_STOCKS)
-
-
-@app.route("/api/health")
-def health():
-    """Vercel / system health check endpoint."""
-    return jsonify({
-        "status": "healthy",
-        "application": "Predictive Insights",
-        "model_architecture": "CatBoost EXP2 Regressor with Train-Tuned Hurdle"
-    })
-
-
-@app.route("/api/predict", methods=["GET", "POST"])
-def predict():
-    """
-    API endpoint executing EXP2 next-trading-day forecast.
-    Accepts GET query param ?ticker=... or POST JSON payload {"ticker": "..."}.
-    """
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        ticker = payload.get("ticker", "")
+    # 1. Inputs Section: Stock Selection Only
+    stock_selection = st.selectbox(
+        "Select Stock Ticker",
+        options=list(POPULAR_STOCKS.keys()),
+        index=0
+    )
+    
+    # If user chooses custom ticker
+    if POPULAR_STOCKS[stock_selection] == "CUSTOM":
+        custom_ticker = st.text_input("Enter Yahoo Finance Ticker Symbol:", value="").upper().strip()
+        selected_ticker = custom_ticker
     else:
-        ticker = request.args.get("ticker", "")
+        selected_ticker = POPULAR_STOCKS[stock_selection]
 
-    ticker = str(ticker).strip().upper()
-    if not ticker or ticker == "CUSTOM":
-        return jsonify({
-            "success": False,
-            "error": "Please provide a valid stock ticker symbol (e.g. AAPL, NVDA, RELIANCE.NS)."
-        }), 400
+    # Currency Symbol helper
+    curr_sym = "₹" if selected_ticker.endswith((".NS", ".BO")) else "$"
 
-    try:
-        df_clean, benchmark = load_clean_data(ticker)
-        res = run_next_day_forecast(df_clean, ticker=ticker)
+    # 2. Single Prominent Predict Button
+    predict_clicked = st.button("🚀 Predict Next Trading Day", use_container_width=True, type="primary")
 
-        curr_sym = "₹" if ticker.endswith((".NS", ".BO")) else "$"
-        asset_name = ASSET_NAMES.get(ticker, ticker)
+    if predict_clicked:
+        if not selected_ticker:
+            st.error("Please enter or select a valid stock ticker symbol.")
+            return
 
-        return jsonify({
-            "success": true_bool(True),
-            "ticker": ticker,
-            "asset_name": asset_name,
-            "currency_symbol": curr_sym,
-            "last_date": res["last_date"].strftime("%b %d, %Y"),
-            "next_date": res["next_date"].strftime("%Y-%m-%d (%a)"),
-            "last_close": round(res["last_close"], 2),
-            "predicted_price": round(res["predicted_price"], 2),
-            "price_change": round(res["price_change"], 2),
-            "pct_change": round(res["pct_change"], 2),
-            "predicted_direction": res["predicted_direction"],
-            "price_movement": res["price_movement"],
-            "exp2_classification": res["exp2_classification"],
-            "learned_threshold": round(res["learned_threshold"], 6),
-            "pred_log_return": round(res["pred_log_return"], 6),
-            "historical_dates": res["historical_dates"],
-            "historical_prices": res["historical_prices"]
-        })
-    except Exception as e:
-        err_str = str(e)
-        if "No market data returned" in err_str or "verify the ticker" in err_str:
-            user_msg = f"Could not retrieve market data for '{ticker}'. Please ensure it is a valid Yahoo Finance ticker symbol."
+        with st.spinner(f"Analyzing {selected_ticker} and generating next-day forecast (EXP2)..."):
+            try:
+                df_clean, bench = load_clean_data(selected_ticker)
+            except Exception as e:
+                err_msg = str(e)
+                if "No market data returned" in err_msg or "verify the ticker" in err_msg:
+                    st.error(f"❌ Could not retrieve market data for **{selected_ticker}**. Please ensure it is a valid Yahoo Finance ticker symbol (e.g. 'AAPL', 'NVDA', 'RELIANCE.NS').")
+                else:
+                    st.error(f"Error fetching data for {selected_ticker}: {err_msg}")
+                return
+
+            try:
+                result = run_next_day_forecast(df_clean, ticker=selected_ticker)
+            except Exception as e:
+                st.error(f"Error generating forecast: {str(e)}")
+                return
+
+        # 3. Model & Asset Header
+        st.markdown("---")
+        is_primary = selected_ticker == "AAPL"
+        badge_text = (
+            "✅ **Primary Benchmark Asset** (Validated in 5-Fold Walk-Forward Cross-Validation & Purged Diagnostic Holdout)"
+            if is_primary
+            else f"🧪 **Dynamic Asset Transfer** (Trained on {selected_ticker} history using the EXP2 CatBoost architecture)"
+        )
+        st.caption(badge_text)
+
+        last_close = result["last_close"]
+        pred_price = result["predicted_price"]
+        price_diff = result["price_change"]
+        pct_diff = result["pct_change"]
+        tau = result["learned_threshold"]
+        pred_log_ret = result["pred_log_return"]
+        price_movement = result["price_movement"]
+        exp2_classification = result["exp2_classification"]
+
+        delta_color = "metric-delta-pos" if price_diff >= 0 else "metric-delta-neg"
+        delta_sign = "+" if price_diff >= 0 else "-"
+
+        # 1. Price Movement Indicator & Badge
+        if price_diff > 1e-6:
+            price_badge_class = "price-badge-up"
+            price_arrow = "↗"
+        elif price_diff < -1e-6:
+            price_badge_class = "price-badge-down"
+            price_arrow = "↘"
         else:
-            user_msg = f"Forecasting error: {err_str}"
-        return jsonify({"success": False, "error": user_msg}), 400
+            price_badge_class = "price-badge-neutral"
+            price_arrow = "—"
 
+        # 2. EXP2 Classification Indicator & Badge
+        if pred_log_ret > tau:
+            exp2_badge_class = "exp2-badge-up"
+        else:
+            exp2_badge_class = "exp2-badge-below"
 
-def true_bool(val: bool) -> bool:
-    return bool(val)
+        # 4. Metric Cards (5 Columns: 3 Price Metrics + Price Movement + EXP2 Classification)
+        col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1.25, 1.35])
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Latest Close</div>
+                <div class="metric-value">{curr_sym}{last_close:.2f}</div>
+                <div style="font-size:0.75rem; color:#94A3B8;">{result['last_date'].strftime('%b %d, %Y')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Predicted Close</div>
+                <div class="metric-value">{curr_sym}{pred_price:.2f}</div>
+                <div style="font-size:0.75rem; color:#2563EB; font-weight:600;">{result['next_date'].strftime('%b %d, %Y (%a)')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Expected Change</div>
+                <div class="metric-value"><span class="{delta_color}">{delta_sign}{abs(pct_diff):.2f}%</span></div>
+                <div class="{delta_color}">{delta_sign}{curr_sym}{abs(price_diff):.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col4:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Predicted Price Movement</div>
+                <div style="margin-top:0.35rem;"><span class="{price_badge_class}">{price_movement} {price_arrow}</span></div>
+                <div style="font-size:0.75rem; color:#64748B; margin-top:0.35rem;">{delta_sign}{curr_sym}{abs(price_diff):.2f} ({delta_sign}{abs(pct_diff):.2f}%)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col5:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">EXP2 Classification</div>
+                <div style="margin-top:0.35rem;"><span class="{exp2_badge_class}">{exp2_classification}</span></div>
+                <div style="font-size:0.72rem; color:#64748B; margin-top:0.35rem; font-weight:500;">
+                    Pred Return: <b>{pred_log_ret:+.2%}</b> | Threshold: <b>{tau:+.2%}</b>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # 5. Simple, Clean Interactive Chart
+        st.subheader("Recent Price Action & Next-Day Prediction")
+        
+        # Display the most recent 60 trading days for context
+        hist_recent = df_clean.iloc[-60:]
+        
+        fig = go.Figure()
+        
+        # Historical Close Line
+        fig.add_trace(go.Scatter(
+            x=hist_recent.index,
+            y=hist_recent["Close"],
+            mode="lines",
+            name="Historical Close",
+            line=dict(color="#334155", width=2)
+        ))
+        
+        # Forecasted Next Trading Day
+        chart_line_color = "#16A34A" if price_diff >= 0 else "#DC2626"
+        fig.add_trace(go.Scatter(
+            x=[result["last_date"], result["next_date"]],
+            y=[last_close, pred_price],
+            mode="lines+markers",
+            name="Predicted Next Day",
+            line=dict(color=chart_line_color, width=2.5, dash="dash"),
+            marker=dict(size=8, color=chart_line_color)
+        ))
+        
+        fig.update_layout(
+            xaxis_title="Trading Session Date",
+            yaxis_title=f"Price ({curr_sym})",
+            hovermode="x unified",
+            template="plotly_white",
+            height=420,
+            margin=dict(l=20, r=20, t=30, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+
+        # 6. Single Forecast Table Row
+        st.subheader("Next-Trading-Day Forecast Details")
+        
+        table_data = [{
+            "Asset": f"{selected_ticker} ({stock_selection.split(' (')[0]})",
+            "Next Session Date": result["next_date"].strftime("%Y-%m-%d (%A)"),
+            "Latest Close": f"{curr_sym}{last_close:.2f}",
+            "Predicted Close": f"{curr_sym}{pred_price:.2f}",
+            "Expected Change": f"{delta_sign}{curr_sym}{abs(price_diff):.2f} ({delta_sign}{abs(pct_diff):.2f}%)",
+            "Price Movement": f"{price_movement} {price_arrow}",
+            "EXP2 Classification": f"{exp2_classification} (Pred Return: {pred_log_ret:+.2%}, Threshold: {tau:+.2%})"
+        }]
+        
+        st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
+
+    # 7. Disclaimers & Methodology Footer
+    st.markdown("""
+    <div class="info-footer">
+        <b>Model Architecture:</b> CatBoost Regressor with Train-Tuned Return Threshold (EXP2).<br>
+        Price movement reflects continuous regression output. EXP2 classification evaluates whether expected return exceeds the calibrated decision hurdle.<br>
+        Forecasts represent statistical projections for educational demonstration and do not constitute financial advice.
+    </div>
+    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
-    # Local development server
-    port = int(os.environ.get("PORT", 8501))
-    print(f"Starting Predictive Insights Flask App on http://localhost:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    main()

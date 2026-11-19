@@ -40,22 +40,19 @@ A scientifically rigorous, leak-free, production-ready machine learning framewor
 
 ---
 
-## 🖥️ Web Application & Vercel Serverless Architecture
+## 🖥️ Streamlit Web Application Architecture
 
-The production application is implemented as an **HTML, CSS, and Vanilla JavaScript frontend** powered by a **Python Flask REST API backend (`app.py`)**, fully optimized for **Vercel Serverless Function** deployment:
+The production application is implemented as an interactive, responsive **Streamlit application (`app.py`)**, purpose-built for deployment on **Streamlit Community Cloud**:
 
-- **Vercel Entry Points:**
-  - `app.py`: Top-level WSGI instance `app = Flask(__name__)`.
-  - `api/index.py`: Serverless handler exporting `app` from `app.py`.
-  - `vercel.json`: Clean routing rewrites routing all traffic to the serverless function.
+- **Streamlit Entry Point:** `app.py`
 - **Minimalist Workflow:** **Select Stock Ticker → Click "🚀 Predict Next Trading Day" → View Predicted Price, Movement, and Classification.**
 - **Dual Indicator Cards:**
   1. **Predicted Price Movement:** Evaluates expected continuous price change $\Delta P = \hat{P}_{t+1} - P_t$ (`PRICE INCREASE ↗` green, `PRICE DECREASE ↘` red, or `NO PRICE CHANGE —` neutral).
   2. **EXP2 Classification:** Evaluates whether predicted return clears the calibrated decision hurdle $\hat{y}_{t+1} > \tau^*$ (`UP — Above threshold` green badge, or `Below UP threshold` neutral slate badge; never mislabeled as "DOWN").
 - **Exchange-Calendar Next Session:** Automatically calculates authentic next trading days skipping weekends and official exchange holidays (NYSE/NASDAQ and NSE/BSE) with safe business-day fallbacks.
-- **Interactive Visualization:** Plotly.js chart displaying recent 60-day price action and a dynamic colored dashed forecast line connecting to tomorrow's projected close.
+- **Interactive Visualization:** Plotly chart displaying recent 60-day price action and a dynamic colored dashed forecast line connecting to tomorrow's projected close.
 - **Single-Row Forecast Details Table:** High-density summary with currency-accurate formatting (`$` for US equities, `₹` for Indian equities).
-- **Streamlit App Preserved:** The legacy Streamlit interface is preserved in `streamlit_app.py` for local exploratory usage.
+- **Strict Next-Day Horizon:** Displays exactly one next-trading-day forecast; recursive multi-day extrapolations are disabled to prevent error compounding.
 
 ---
 
@@ -63,18 +60,9 @@ The production application is implemented as an **HTML, CSS, and Vanilla JavaScr
 
 ```
 predictive_insights/
-├── app.py                             # Production Flask Web Application & REST API (Vercel Entry Point)
-├── vercel.json                        # Vercel serverless function & routing configuration
-├── api/
-│   └── index.py                       # Vercel Serverless Handler (exports top-level `app`)
-├── templates/
-│   └── index.html                     # Clean, semantic HTML5 frontend
-├── static/
-│   ├── css/style.css                  # Modern minimalist responsive styling
-│   └── js/app.js                      # Vanilla JavaScript frontend & Plotly.js integration
-├── streamlit_app.py                   # Preserved Streamlit dashboard for local interactive use
-├── requirements.txt                   # Production serverless dependencies (<250MB Vercel limit)
-├── requirements-dev.txt               # Full development dependencies (includes PyTorch & Streamlit)
+├── app.py                             # Primary Streamlit Web Application (Cloud Entry Point)
+├── requirements.txt                   # Production dependencies for Streamlit Community Cloud
+├── requirements-dev.txt               # Full development dependencies (includes PyTorch & research tools)
 ├── README.md                          # Comprehensive scientific & deployment documentation
 ├── implementation_report.md           # EXP2 integration, UI disambiguation & audit findings
 ├── directional_model_improvement_report.md # 15-experiment directional study findings
@@ -93,12 +81,14 @@ predictive_insights/
 │   ├── features/                      # Technical feature computation & stationarity testing
 │   ├── models/                        # Unified BaseForecaster, CatBoostEXP2Forecaster
 │   └── evaluation/                    # Metrics, HAC significance tests & conformal calibration
-└── tests/                             # Automated pytest suite (31 unit & integration tests)
-    ├── test_flask_api.py              # Flask routes, Vercel entry point, and API tests
+└── tests/                             # Automated pytest suite (24 unit & integration tests)
     ├── test_calendar.py               # NYSE/NSE exchange calendar & holiday tests
     ├── test_dashboard_forecast.py     # Single-day forecast & delta percentage tests
     ├── test_ui_classification_cases.py# Price movement vs EXP2 classification display tests
-    └── test_exp2_integration.py       # EXP2 threshold tuning & price preservation tests
+    ├── test_exp2_integration.py       # EXP2 threshold tuning & price preservation tests
+    ├── test_data_leakage.py           # Strict train/holdout temporal boundary assertions
+    ├── test_evaluation.py             # HAC covariance & loss function invariance tests
+    └── test_models.py                 # Tree & baseline model contract tests
 ```
 
 ---
@@ -111,13 +101,15 @@ cd predictive_insights
 pip install -r requirements.txt
 ```
 
-### 2. Run Automated Pytest Suite (31 Tests)
+### 2. Run Automated Pytest Suite
 ```bash
 PYTHONPATH=. pytest tests/ -v
 ```
 
-### 3. Launch Flask Web Application (Vercel Simulation)
+### 3. Launch Streamlit Application
 ```bash
+streamlit run app.py
+```
 python app.py
 # Opens at http://localhost:8501
 ```

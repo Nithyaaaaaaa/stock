@@ -8,8 +8,17 @@ from typing import Optional, Dict, Any, List
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import balanced_accuracy_score
-from xgboost import XGBRegressor
-from lightgbm import LGBMRegressor
+try:
+    from xgboost import XGBRegressor
+    HAS_XGBOOST = True
+except ImportError:
+    HAS_XGBOOST = False
+
+try:
+    from lightgbm import LGBMRegressor
+    HAS_LIGHTGBM = True
+except ImportError:
+    HAS_LIGHTGBM = False
 from catboost import CatBoostRegressor, CatBoostClassifier
 
 from src.models.base import BaseForecaster
@@ -50,6 +59,8 @@ class XGBoostForecaster(BaseForecaster):
         random_state: int = 42
     ):
         super().__init__(name="XGBoost")
+        if not HAS_XGBOOST:
+            raise ImportError("xgboost is required for XGBoostForecaster. Install it via pip install xgboost.")
         self.model = XGBRegressor(
             n_estimators=n_estimators,
             max_depth=max_depth,
@@ -87,6 +98,8 @@ class LightGBMForecaster(BaseForecaster):
         random_state: int = 42
     ):
         super().__init__(name="LightGBM")
+        if not HAS_LIGHTGBM:
+            raise ImportError("lightgbm is required for LightGBMForecaster. Install it via pip install lightgbm.")
         self.model = LGBMRegressor(
             n_estimators=n_estimators,
             max_depth=max_depth,
