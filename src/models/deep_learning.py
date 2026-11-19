@@ -12,14 +12,22 @@ import math
 import random
 from typing import Optional, Tuple
 import numpy as np
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
 
 try:
-    torch.set_num_threads(1)
-except Exception:
-    pass
+    import torch
+    import torch.nn as nn
+    from torch.utils.data import DataLoader, TensorDataset
+    try:
+        torch.set_num_threads(1)
+    except Exception:
+        pass
+    HAS_TORCH = True
+except ImportError:
+    torch = None
+    nn = None
+    DataLoader = None
+    TensorDataset = None
+    HAS_TORCH = False
 
 from src.models.base import BaseForecaster
 
@@ -27,9 +35,10 @@ from src.models.base import BaseForecaster
 def set_seed(seed: int = 42):
     random.seed(seed)
     np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    if HAS_TORCH and torch is not None:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
 
 def to_sequence_tensor(X: np.ndarray, seq_len: int = 20) -> torch.Tensor:

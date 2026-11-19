@@ -40,22 +40,22 @@ A scientifically rigorous, leak-free, production-ready machine learning framewor
 
 ---
 
-## 🖥️ Streamlit Dashboard — Next-Day Only
+## 🖥️ Web Application & Vercel Serverless Architecture
 
-The user-facing dashboard in `app.py` has been completely streamlined to focus strictly on **next-trading-day predictions**:
+The production application is implemented as an **HTML, CSS, and Vanilla JavaScript frontend** powered by a **Python Flask REST API backend (`app.py`)**, fully optimized for **Vercel Serverless Function** deployment:
 
-- **Minimalist Workflow:** **Select Stock Ticker → Click "🚀 Predict Next Trading Day" → View Predicted Price and Direction.**
-- **Removed Horizons:** All multi-day horizon dropdowns (5, 7, 15, 30 days) and synthetic recursive OHLCV rollouts have been eliminated from the production app.
-- **Displayed Outputs:**
-  1. Selected Stock Name and Ticker Symbol.
-  2. Latest Available Actual Closing Price ($P_t$) and observation date.
-  3. Predicted Next Trading Day's Closing Price ($\hat{P}_{t+1}$).
-  4. Expected Dollar Change ($\Delta P$).
-  5. Expected Percentage Change ($\Delta P / P_t \times 100\%$).
-  6. Predicted Direction: **UP ↗** or **DOWN ↘** badge based on the learned EXP2 return cutoff ($\hat{y}_{t+1} > \tau^*$).
-- **Calendar-Aware Next Session Date:** Accurately accounts for market weekends (e.g., Friday close maps to Monday trading session) and official exchange holidays (Thanksgiving, Good Friday, Christmas, Republic Day, etc.) via dedicated exchange calendars (`src/data/calendar.py`) with a safe business-day fallback.
-- **Interactive Visualization:** Clean Plotly chart displaying recent historical closing prices and connecting to the predicted next-session price.
-- **Single-Row Forecast Table:** Displays concise tabular details with the decision rule.
+- **Vercel Entry Points:**
+  - `app.py`: Top-level WSGI instance `app = Flask(__name__)`.
+  - `api/index.py`: Serverless handler exporting `app` from `app.py`.
+  - `vercel.json`: Clean routing rewrites routing all traffic to the serverless function.
+- **Minimalist Workflow:** **Select Stock Ticker → Click "🚀 Predict Next Trading Day" → View Predicted Price, Movement, and Classification.**
+- **Dual Indicator Cards:**
+  1. **Predicted Price Movement:** Evaluates expected continuous price change $\Delta P = \hat{P}_{t+1} - P_t$ (`PRICE INCREASE ↗` green, `PRICE DECREASE ↘` red, or `NO PRICE CHANGE —` neutral).
+  2. **EXP2 Classification:** Evaluates whether predicted return clears the calibrated decision hurdle $\hat{y}_{t+1} > \tau^*$ (`UP — Above threshold` green badge, or `Below UP threshold` neutral slate badge; never mislabeled as "DOWN").
+- **Exchange-Calendar Next Session:** Automatically calculates authentic next trading days skipping weekends and official exchange holidays (NYSE/NASDAQ and NSE/BSE) with safe business-day fallbacks.
+- **Interactive Visualization:** Plotly.js chart displaying recent 60-day price action and a dynamic colored dashed forecast line connecting to tomorrow's projected close.
+- **Single-Row Forecast Details Table:** High-density summary with currency-accurate formatting (`$` for US equities, `₹` for Indian equities).
+- **Streamlit App Preserved:** The legacy Streamlit interface is preserved in `streamlit_app.py` for local exploratory usage.
 
 ---
 
@@ -63,10 +63,20 @@ The user-facing dashboard in `app.py` has been completely streamlined to focus s
 
 ```
 predictive_insights/
-├── app.py                             # Next-Day Streamlit Web Application (EXP2 Champion)
-├── requirements.txt                   # Locked project dependencies
-├── README.md                          # Comprehensive scientific documentation
-├── implementation_report.md           # EXP2 integration & dashboard simplification report
+├── app.py                             # Production Flask Web Application & REST API (Vercel Entry Point)
+├── vercel.json                        # Vercel serverless function & routing configuration
+├── api/
+│   └── index.py                       # Vercel Serverless Handler (exports top-level `app`)
+├── templates/
+│   └── index.html                     # Clean, semantic HTML5 frontend
+├── static/
+│   ├── css/style.css                  # Modern minimalist responsive styling
+│   └── js/app.js                      # Vanilla JavaScript frontend & Plotly.js integration
+├── streamlit_app.py                   # Preserved Streamlit dashboard for local interactive use
+├── requirements.txt                   # Production serverless dependencies (<250MB Vercel limit)
+├── requirements-dev.txt               # Full development dependencies (includes PyTorch & Streamlit)
+├── README.md                          # Comprehensive scientific & deployment documentation
+├── implementation_report.md           # EXP2 integration, UI disambiguation & audit findings
 ├── directional_model_improvement_report.md # 15-experiment directional study findings
 ├── final_classification_metrics.md    # Scikit-learn classification reports & confusion matrices
 ├── final_consistency_report.md        # Metric reconciliation and audit consistency report
@@ -83,15 +93,17 @@ predictive_insights/
 │   ├── features/                      # Technical feature computation & stationarity testing
 │   ├── models/                        # Unified BaseForecaster, CatBoostEXP2Forecaster
 │   └── evaluation/                    # Metrics, HAC significance tests & conformal calibration
-└── tests/                             # Automated pytest suite (21 unit & integration tests)
+└── tests/                             # Automated pytest suite (31 unit & integration tests)
+    ├── test_flask_api.py              # Flask routes, Vercel entry point, and API tests
     ├── test_calendar.py               # NYSE/NSE exchange calendar & holiday tests
     ├── test_dashboard_forecast.py     # Single-day forecast & delta percentage tests
+    ├── test_ui_classification_cases.py# Price movement vs EXP2 classification display tests
     └── test_exp2_integration.py       # EXP2 threshold tuning & price preservation tests
 ```
 
 ---
 
-## ⚡ Quickstart & Usage
+## ⚡ Quickstart & Local Execution
 
 ### 1. Installation
 ```bash
@@ -99,14 +111,15 @@ cd predictive_insights
 pip install -r requirements.txt
 ```
 
-### 2. Run Automated Test Suite
+### 2. Run Automated Pytest Suite (31 Tests)
 ```bash
 PYTHONPATH=. pytest tests/ -v
 ```
 
-### 3. Launch Interactive Streamlit Dashboard
+### 3. Launch Flask Web Application (Vercel Simulation)
 ```bash
-PYTHONPATH=. streamlit run app.py
+python app.py
+# Opens at http://localhost:8501
 ```
 
 ---

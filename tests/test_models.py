@@ -56,6 +56,7 @@ def test_tree_forecasters_produce_valid_predictions(synthetic_data):
 
 
 def test_deep_learning_models_handle_sequence_padding(synthetic_data):
+    pytest.importorskip("torch")
     X, y, prev_closes = synthetic_data
     lstm = LSTMForecaster(seq_len=10, hidden_dim=16, num_layers=1, epochs=2, lr=0.01, seed=42)
     lstm.fit(X[:80], y[:80])
