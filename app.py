@@ -377,7 +377,6 @@ def main():
             <div class="metric-card">
                 <div class="metric-label">Predicted Close</div>
                 <div class="metric-value">{curr_sym}{pred_price:.2f}</div>
-                <div style="font-size:0.75rem; color:#38BDF8; font-weight:600;">{result['next_date'].strftime('%b %d, %Y (%a)')}</div>
             </div>
             """, unsafe_allow_html=True)
 
