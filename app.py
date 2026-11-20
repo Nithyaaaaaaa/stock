@@ -258,6 +258,12 @@ def run_next_day_forecast(df_clean: pd.DataFrame, ticker: str = "AAPL"):
         "UP — Above threshold" if pred_log_ret > learned_tau
         else "Below UP threshold"
     )
+    # User-facing Directional Signal consistent with predicted price movement
+    directional_signal = (
+        "UP" if price_change > 1e-6
+        else "DOWN" if price_change < -1e-6
+        else "NO CHANGE"
+    )
     
     return {
         "ticker": ticker,
@@ -270,6 +276,7 @@ def run_next_day_forecast(df_clean: pd.DataFrame, ticker: str = "AAPL"):
         "predicted_direction": pred_direction,
         "price_movement": price_movement,
         "exp2_classification": exp2_classification,
+        "directional_signal": directional_signal,
         "learned_threshold": learned_tau,
         "pred_log_return": pred_log_ret
     }
@@ -343,24 +350,24 @@ def main():
         delta_color = "metric-delta-pos" if price_diff >= 0 else "metric-delta-neg"
         delta_sign = "+" if price_diff >= 0 else "-"
 
-        # 1. Price Movement Indicator & Badge
+        # 1. Price Movement & Directional Signal Indicators
         if price_diff > 1e-6:
             price_badge_class = "price-badge-up"
             price_arrow = "↗"
+            directional_signal = "UP"
+            signal_badge_class = "price-badge-up"
         elif price_diff < -1e-6:
             price_badge_class = "price-badge-down"
             price_arrow = "↘"
+            directional_signal = "DOWN"
+            signal_badge_class = "price-badge-down"
         else:
             price_badge_class = "price-badge-neutral"
             price_arrow = "—"
+            directional_signal = "NO CHANGE"
+            signal_badge_class = "price-badge-neutral"
 
-        # 2. EXP2 Classification Indicator & Badge
-        if pred_log_ret > tau:
-            exp2_badge_class = "exp2-badge-up"
-        else:
-            exp2_badge_class = "exp2-badge-below"
-
-        # 4. Metric Cards (5 Columns: 3 Price Metrics + Price Movement + EXP2 Classification)
+        # 4. Metric Cards (5 Columns: 3 Price Metrics + Price Movement + Directional Signal)
         col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1.25, 1.35])
         
         with col1:
@@ -402,7 +409,7 @@ def main():
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Directional Signal</div>
-                <div style="margin-top:0.35rem;"><span class="{exp2_badge_class}">{exp2_classification}</span></div>
+                <div style="margin-top:0.35rem;"><span class="{signal_badge_class}">{directional_signal} {price_arrow}</span></div>
                 <div style="font-size:0.72rem; color:#94A3B8; margin-top:0.35rem; font-weight:500;">
                     Pred Return: <b>{pred_log_ret:+.2%}</b> | Threshold: <b>{tau:+.2%}</b>
                 </div>
@@ -434,7 +441,7 @@ def main():
             x=[result["last_date"], result["next_date"]],
             y=[last_close, pred_price],
             mode="lines+markers",
-            name="Predicted Next Day",
+            name=f"Predicted ({directional_signal})",
             line=dict(color=chart_line_color, width=2.5, dash="dash"),
             marker=dict(size=8, color=chart_line_color)
         ))
@@ -465,7 +472,7 @@ def main():
             "Predicted Close": f"{curr_sym}{pred_price:.2f}",
             "Expected Change": f"{delta_sign}{curr_sym}{abs(price_diff):.2f} ({delta_sign}{abs(pct_diff):.2f}%)",
             "Price Movement": f"{price_movement} {price_arrow}",
-            "Directional Signal": f"{exp2_classification} (Pred Return: {pred_log_ret:+.2%}, Threshold: {tau:+.2%})"
+            "Directional Signal": f"{directional_signal} {price_arrow} (Pred Return: {pred_log_ret:+.2%}, Threshold: {tau:+.2%})"
         }]
         
         st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)

@@ -68,7 +68,7 @@ def test_dashboard_next_day_forecast_single_prediction(sample_clean_market_data)
     expected_dir = "UP" if pred_log_ret > tau else "DOWN"
     assert res["predicted_direction"] == expected_dir
     
-    # 6. Price movement and EXP2 classification fields
+    # 6. Price movement, EXP2 classification, and user-facing Directional Signal fields
     expected_mov = (
         "PRICE INCREASE" if delta_p > 1e-6
         else "PRICE DECREASE" if delta_p < -1e-6
@@ -78,8 +78,14 @@ def test_dashboard_next_day_forecast_single_prediction(sample_clean_market_data)
         "UP — Above threshold" if pred_log_ret > tau
         else "Below UP threshold"
     )
+    expected_signal = (
+        "UP" if delta_p > 1e-6
+        else "DOWN" if delta_p < -1e-6
+        else "NO CHANGE"
+    )
     assert res["price_movement"] == expected_mov
     assert res["exp2_classification"] == expected_exp2
+    assert res["directional_signal"] == expected_signal
 
 
 def test_popular_stocks_dropdown_options():

@@ -29,13 +29,24 @@ def evaluate_ui_labels(last_close: float, pred_log_ret: float, tau: float):
         badge_class = "price-badge-neutral"
         arrow = "—"
         
-    # 2. EXP2 Classification
+    # 2. EXP2 Classification (model internal hurdle)
     if pred_log_ret > tau:
         exp2_classification = "UP — Above threshold"
         exp2_badge = "exp2-badge-up"
     else:
         exp2_classification = "Below UP threshold"
         exp2_badge = "exp2-badge-below"
+
+    # 3. User-facing Directional Signal (consistent with predicted price movement)
+    if price_change > 1e-6:
+        directional_signal = "UP"
+        signal_badge = "price-badge-up"
+    elif price_change < -1e-6:
+        directional_signal = "DOWN"
+        signal_badge = "price-badge-down"
+    else:
+        directional_signal = "NO CHANGE"
+        signal_badge = "price-badge-neutral"
         
     return {
         "pred_price": pred_price,
@@ -45,7 +56,9 @@ def evaluate_ui_labels(last_close: float, pred_log_ret: float, tau: float):
         "price_arrow": arrow,
         "exp2_classification": exp2_classification,
         "exp2_badge": exp2_badge,
-        "chart_color": "#16A34A" if price_change >= 0 else "#DC2626"
+        "directional_signal": directional_signal,
+        "signal_badge": signal_badge,
+        "chart_color": "#4ADE80" if price_change >= 0 else "#F87171"
     }
 
 
@@ -65,14 +78,18 @@ def test_case_1_positive_return_below_threshold():
     assert res["exp2_classification"] == "Below UP threshold"
     assert res["exp2_badge"] == "exp2-badge-below"
     
+    # Directional Signal must match price movement
+    assert res["directional_signal"] == "UP"
+    assert res["signal_badge"] == "price-badge-up"
+    
     # Chart line must be green for price gain, not red!
-    assert res["chart_color"] == "#16A34A"
+    assert res["chart_color"] == "#4ADE80"
 
 
 def test_case_2_positive_return_above_threshold():
     """
     Test Case 2: +0.20% predicted return with +0.13% threshold.
-    Must show: PRICE INCREASE / UP — ABOVE THRESHOLD.
+    Must show: PRICE INCREASE / UP directional signal.
     """
     res = evaluate_ui_labels(last_close=59.19, pred_log_ret=0.0020, tau=0.0013)
     
@@ -81,15 +98,15 @@ def test_case_2_positive_return_above_threshold():
     assert res["price_badge"] == "price-badge-up"
     assert res["price_arrow"] == "↗"
     
-    assert res["exp2_classification"] == "UP — Above threshold"
-    assert res["exp2_badge"] == "exp2-badge-up"
-    assert res["chart_color"] == "#16A34A"
+    assert res["directional_signal"] == "UP"
+    assert res["signal_badge"] == "price-badge-up"
+    assert res["chart_color"] == "#4ADE80"
 
 
 def test_case_3_negative_return_below_threshold():
     """
     Test Case 3: -0.10% predicted return with +0.13% threshold.
-    Must show: PRICE DECREASE (red) / BELOW UP THRESHOLD.
+    Must show: PRICE DECREASE (red) / DOWN directional signal.
     """
     res = evaluate_ui_labels(last_close=59.19, pred_log_ret=-0.0010, tau=0.0013)
     
@@ -98,6 +115,26 @@ def test_case_3_negative_return_below_threshold():
     assert res["price_badge"] == "price-badge-down"
     assert res["price_arrow"] == "↘"
     
-    assert res["exp2_classification"] == "Below UP threshold"
-    assert res["exp2_badge"] == "exp2-badge-below"
-    assert res["chart_color"] == "#DC2626"
+    assert res["directional_signal"] == "DOWN"
+    assert res["signal_badge"] == "price-badge-down"
+    assert res["chart_color"] == "#F87171"
+
+
+def test_case_4_negative_return_above_negative_threshold_must_be_down():
+    """
+    Test Case 4: -0.03% predicted return with -0.08% threshold (e.g. RELIANCE.NS scenario).
+    Even though pred_log_ret > tau, predicted price drops.
+    User-facing directional signal MUST be DOWN to avoid contradicting price movement.
+    """
+    res = evaluate_ui_labels(last_close=1363.00, pred_log_ret=-0.00033, tau=-0.00080)
+    
+    assert res["price_change"] < 0
+    assert res["price_movement"] == "PRICE DECREASE"
+    assert res["price_badge"] == "price-badge-down"
+    assert res["price_arrow"] == "↘"
+    
+    # Internal hurdle was "UP — Above threshold", but user-facing Directional Signal MUST BE DOWN!
+    assert res["exp2_classification"] == "UP — Above threshold"
+    assert res["directional_signal"] == "DOWN"
+    assert res["signal_badge"] == "price-badge-down"
+    assert res["chart_color"] == "#F87171"
