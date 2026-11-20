@@ -375,7 +375,6 @@ def main():
             <div class="metric-card">
                 <div class="metric-label">Latest Close</div>
                 <div class="metric-value">{curr_sym}{last_close:.2f}</div>
-                <div style="font-size:0.75rem; color:#94A3B8;">{result['last_date'].strftime('%b %d, %Y')}</div>
             </div>
             """, unsafe_allow_html=True)
 
